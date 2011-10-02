@@ -45,6 +45,19 @@ app.get('/logger/:channel/', function(req, res){
 
 app.get('/logger/:channel', function(req, res){res.redirect('/logger/'+req.params.channel+'/')});
 
+app.get('/logger/', function(req, res){
+  var channel = req.params.channel;
+  redis.smembers('logger', function(err, logs){
+    res.render('logger', {
+      'title': 'Logs',
+      'logs': logs,
+      'links': 'true'
+    });
+  });
+});
+
+app.get('/logger', function(req, res){res.redirect('/logger/')});
+
 app.get('/logger/:channel/:date', function(req, res){
   var channel = req.params.channel;
   var date = req.params.date;
@@ -81,6 +94,7 @@ bot.addListener('message', function(from, to, message){
         var d = new Date();
         var date = ISODateString(d);
         var time = ISOTimeString(d);
+        redis.sadd('logger', to.replace('#', ''));
         redis.sadd('logger:'+to, date);
         redis.rpush('logger:'+to+':'+date, '['+time+'] <'+from+'> '+message);
     }
@@ -90,6 +104,7 @@ bot.addListener('join', function(channel, who){
   var d = new Date();
   var date = ISODateString(d);
   var time = ISOTimeString(d);
+  redis.sadd('logger', channel.replace('#', ''));
   redis.sadd('logger:'+channel, date);
   redis.rpush('logger:'+channel+':'+date, '['+time+'] --> '+who+' joined '+channel);
 });
@@ -98,6 +113,7 @@ bot.addListener('part', function(channel, who, reason){
   var d = new Date();
   var date = ISODateString(d);
   var time = ISOTimeString(d);
+  redis.sadd('logger', channel.replace('#', ''));
   redis.sadd('logger:'+channel, date);
   redis.rpush('logger:'+channel+':'+date, '['+time+'] <-- '+who+' left '+channel+' ('+reason+')');
 });
@@ -106,6 +122,7 @@ bot.addListener('kick', function(channel, who, by, reason){
   var d = new Date();
   var date = ISODateString(d);
   var time = ISOTimeString(d);
+  redis.sadd('logger', channel.replace('#', ''));
   redis.sadd('logger:'+channel, date);
   redis.rpush('logger:'+channel+':'+date, '['+time+'] <-- '+who+' was kicked from '+channel+' by '+by+' ('+reason+')');
 });
