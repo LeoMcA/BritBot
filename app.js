@@ -1,15 +1,20 @@
-/*
 var express = require('express');
 var app = module.exports = express.createServer();
+var irc = require('irc');
+var redis = require('redis').createClient();
 
-// Configuration
+redis.on("error", function (err) {
+  console.log("redis error " + err);
+});
+
+// Server Configuration
 app.configure(function(){
-  app.set('views', __dirname + '/web/views');
+  app.set('views', __dirname + '/views');
   app.set('view engine', 'jade');
   app.use(express.bodyParser());
   app.use(express.methodOverride());
   app.use(app.router);
-  app.use(express.static(__dirname + '/web/public'));
+  app.use(express.static(__dirname + '/public'));
 });
 
 app.configure('development', function(){
@@ -20,20 +25,40 @@ app.configure('production', function(){
   app.use(express.errorHandler());
 });
 
-// Routes
+// Server Routes
 app.get('/', function(req, res){
   res.render('index', {
-    title: 'Express'
+    title: 'BritBot'
+  });
+});
+
+app.get('/logger/:channel/', function(req, res){
+  var channel = req.params.channel;
+  redis.smembers('logger:#'+channel, function(err, logs){
+    res.render('logger', {
+      'title': 'Logs for #'+channel,
+      'logs': logs,
+      'links': 'true'
+    });
+  });
+});
+
+app.get('/logger/:channel', function(req, res){res.redirect('/logger/'+req.params.channel+'/')});
+
+app.get('/logger/:channel/:date', function(req, res){
+  var channel = req.params.channel;
+  var date = req.params.date;
+  redis.lrange('logger:#'+req.params.channel+':'+req.params.date, '0', '-1', function(err, logs){
+    res.render('logger', {
+      'title': 'Logs for #'+channel+' on '+date,
+      'logs': logs,
+      'links': 'false'
+    });
   });
 });
 
 app.listen(3000);
 console.log("BritBot on port %d in %s mode", app.address().port, app.settings.env);
-*/
-
-var irc = require('irc');
-var redis = require('redis').createClient();
-var io = require('socket.io').listen(80);
 
 function ISODateString(d){
     // Ripped off the MDN, thanks guys!
@@ -52,7 +77,35 @@ bot = new irc.Client('irc.mozilla.org', 'BritBot', {
 });
 
 bot.addListener('message', function(from, to, message){
-    var d = new Date();
-    redis.rpush('logger:'+to+':'+ISODateString(d), '['+ISOTimeString(d)+'] <'+from+'> '+message);
-    console.log('logger:'+to+':'+ISODateString(d), '['+ISOTimeString(d)+'] <'+from+'> '+message);
+    if(to.match(/^[#&]/)){
+        var d = new Date();
+        var date = ISODateString(d);
+        var time = ISOTimeString(d);
+        redis.sadd('logger:'+to, date);
+        redis.rpush('logger:'+to+':'+date, '['+time+'] <'+from+'> '+message);
+    }
+});
+
+bot.addListener('join', function(channel, who){
+  var d = new Date();
+  var date = ISODateString(d);
+  var time = ISOTimeString(d);
+  redis.sadd('logger:'+channel, date);
+  redis.rpush('logger:'+channel+':'+date, '['+time+'] --> '+who+' joined '+channel);
+});
+
+bot.addListener('part', function(channel, who, reason){
+  var d = new Date();
+  var date = ISODateString(d);
+  var time = ISOTimeString(d);
+  redis.sadd('logger:'+channel, date);
+  redis.rpush('logger:'+channel+':'+date, '['+time+'] <-- '+who+' left '+channel+' ('+reason+')');
+});
+
+bot.addListener('kick', function(channel, who, by, reason){
+  var d = new Date();
+  var date = ISODateString(d);
+  var time = ISOTimeString(d);
+  redis.sadd('logger:'+channel, date);
+  redis.rpush('logger:'+channel+':'+date, '['+time+'] <-- '+who+' was kicked from '+channel+' by '+by+' ('+reason+')');
 });
