@@ -57,7 +57,7 @@ app.get('/logger/:channel/:date', function(req, res){
   });
 });
 
-app.listen(3000);
+app.listen(80);
 console.log("BritBot on port %d in %s mode", app.address().port, app.settings.env);
 
 function ISODateString(d){
@@ -73,7 +73,7 @@ function ISOTimeString(d){
 }
 
 bot = new irc.Client('irc.mozilla.org', 'BritBot', {
-    channels: ['#britbot'],
+    channels: ['#britbot', '#uk'],
 });
 
 bot.addListener('message', function(from, to, message){
