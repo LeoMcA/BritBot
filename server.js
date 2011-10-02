@@ -87,6 +87,8 @@ function ISOTimeString(d){
 
 bot = new irc.Client('irc.mozilla.org', 'BritBot', {
     channels: ['#britbot', '#uk'],
+//bot = new irc.Client('irc.mozilla.org', 'BritBot_test', {
+    //channels: ['#britbot'],
 });
 
 bot.addListener('message', function(from, to, message){
@@ -116,6 +118,17 @@ bot.addListener('part', function(channel, who, reason){
   redis.sadd('logger', channel.replace('#', ''));
   redis.sadd('logger:'+channel, date);
   redis.rpush('logger:'+channel+':'+date, '['+time+'] <-- '+who+' left '+channel+' ('+reason+')');
+});
+
+bot.addListener('quit', function(who, reason, channels){
+  var d = new Date();
+  var date = ISODateString(d);
+  var time = ISOTimeString(d);
+  channels.forEach(function(channel){
+    redis.sadd('logger', channel.replace('#', ''));
+    redis.sadd('logger:'+channel, date);
+    redis.rpush('logger:'+channel+':'+date, '['+time+'] <-- '+who+' quit IRC ('+reason+')');
+  });
 });
 
 bot.addListener('kick', function(channel, who, by, reason){
