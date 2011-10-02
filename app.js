@@ -33,13 +33,18 @@ console.log("BritBot on port %d in %s mode", app.address().port, app.settings.en
 
 var irc = require('irc');
 var redis = require('redis').createClient();
+var io = require('socket.io').listen(80);
 
-function ISO8601(d){
+function ISODateString(d){
     // Ripped off the MDN, thanks guys!
     function pad(n){return n<10 ? '0'+n : n}
-    return d.getUTCFullYear()+'-'
-      + pad(d.getUTCMonth()+1)+'-'
-      + pad(d.getUTCDate())
+    return d.getUTCFullYear()+'-'+ pad(d.getUTCMonth()+1)+'-'+ pad(d.getUTCDate())
+}
+
+function ISOTimeString(d){
+    // Again, ripped off the MDN, thanks guys!
+     function pad(n){return n<10 ? '0'+n : n}
+     return pad(d.getUTCHours())+':'+ pad(d.getUTCMinutes())+':'+ pad(d.getUTCSeconds())
 }
 
 bot = new irc.Client('irc.mozilla.org', 'BritBot', {
@@ -48,6 +53,6 @@ bot = new irc.Client('irc.mozilla.org', 'BritBot', {
 
 bot.addListener('message', function(from, to, message){
     var d = new Date();
-    redis.rpush('logger:'+to+':'+ISO8601(d), '<'+from+'> '+message);
-    console.log('logger:'+to+':'+ISO8601(d), '<'+from+'> '+message);
+    redis.rpush('logger:'+to+':'+ISODateString(d), '['+ISOTimeString(d)+'] <'+from+'> '+message);
+    console.log('logger:'+to+':'+ISODateString(d), '['+ISOTimeString(d)+'] <'+from+'> '+message);
 });
